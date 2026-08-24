@@ -1,21 +1,11 @@
 """
 Renee's Table — live-AI gluten-free recipe generator (Streamlit web app)
-
-Pick any ingredients across meats, vegetables, fruits, and dairy (or type your
-own), set your preferences, and the AI writes a brand-new gluten-free recipe.
-
-Run locally:   streamlit run recipe_app.py
-Deploy free on Streamlit Community Cloud, then Add to Home Screen on your phone.
-
-Your AI key stays in the host's Secrets (on the server), never in the app or on
-your phone. Works with EITHER an Anthropic (Claude) key or an OpenAI key —
-whichever you have. If no key is set, it shows a sample so you can still see it.
+Two tabs: AI generator + your own cookbook (my_recipes.py).
 """
 
 import os
 import streamlit as st
 
-# ------------------------------------------------------------------ key + model
 def _secret(name):
     try:
         if name in st.secrets:
@@ -26,8 +16,6 @@ def _secret(name):
 
 
 def generate_recipe(prompt):
-    """Try Claude first, then OpenAI, else a clear sample."""
-    # --- Anthropic / Claude ---
     anthropic_key = _secret("ANTHROPIC_API_KEY")
     if anthropic_key:
         try:
@@ -38,11 +26,10 @@ def generate_recipe(prompt):
                 max_tokens=900,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return "".join(block.text for block in msg.content if block.type == "text")
+            return "".join(b.text for b in msg.content if b.type == "text")
         except Exception as err:
             return f"_Claude request failed: {err}_\n\n" + _sample()
 
-    # --- OpenAI ---
     openai_key = _secret("OPENAI_API_KEY")
     if openai_key:
         try:
@@ -74,7 +61,12 @@ def _sample():
     )
 
 
-# ---------------------------------------------------------------- ingredient sets
+try:
+    from my_recipes import MY_RECIPES
+except Exception:
+    MY_RECIPES = []
+
+
 INGREDIENTS = {
     "🥩 Meats & proteins": [
         "Beef tenderloin", "Steak", "Ground beef", "Chicken breast", "Chicken thighs",
@@ -100,49 +92,50 @@ INGREDIENTS = {
     ],
 }
 
-# ---------------------------------------------------------------------- page
 st.set_page_config(page_title="Renee's Table", page_icon="🍳", layout="centered")
 st.title("🍳 Renee's Table")
-st.caption("Pick any ingredients you like — the AI writes you a gluten-free recipe.")
 
-st.subheader("What's in your kitchen?")
-chosen = []
-for category, items in INGREDIENTS.items():
-    picked = st.multiselect(category, items, key=category)
-    chosen.extend(picked)
+tab_generate, tab_cookbook = st.tabs(["✨ Generate a recipe", "📖 My Cookbook"])
 
-custom = st.text_input(
-    "Anything else? (type extra ingredients, comma-separated)",
-    placeholder="e.g. basil, coconut milk, pine nuts",
-)
-if custom.strip():
-    chosen.extend([c.strip() for c in custom.split(",") if c.strip()])
+with tab_generate:
+    st.caption("Pick any ingredients you like — the AI writes you a gluten-free recipe.")
+    st.subheader("What's in your kitchen?")
+    chosen = []
+    for category, items in INGREDIENTS.items():
+        picked = st.multiselect(category, items, key=category)
+        chosen.extend(picked)
 
-st.subheader("Preferences")
-col1, col2 = st.columns(2)
-with col1:
-    experience_level = st.selectbox("Experience level", ["beginner", "intermediate", "expert"], index=2)
-with col2:
-    max_spice = st.slider("Max spice (0–10)", 0, 10, 6)
+    custom = st.text_input(
+        "Anything else? (type extra ingredients, comma-separated)",
+        placeholder="e.g. basil, coconut milk, pine nuts",
+    )
+    if custom.strip():
+        chosen.extend([c.strip() for c in custom.split(",") if c.strip()])
 
-c3, c4 = st.columns(2)
-with c3:
-    vegetarian = st.checkbox("Vegetarian", value=False)
-with c4:
-    dairy_free = st.checkbox("Dairy-free", value=False)
+    st.subheader("Preferences")
+    col1, col2 = st.columns(2)
+    with col1:
+        experience_level = st.selectbox("Experience level", ["beginner", "intermediate", "expert"], index=2)
+    with col2:
+        max_spice = st.slider("Max spice (0–10)", 0, 10, 6)
 
-extra_notes = st.text_input("Any special requests? (optional)", placeholder="e.g. quick weeknight dinner, one pan, kid-friendly")
+    c3, c4 = st.columns(2)
+    with c3:
+        vegetarian = st.checkbox("Vegetarian", value=False)
+    with c4:
+        dairy_free = st.checkbox("Dairy-free", value=False)
 
-# ----------------------------------------------------------------- build prompt
-restrictions = ["celiac (must be strictly gluten-free)"]
-if vegetarian:
-    restrictions.append("vegetarian")
-if dairy_free:
-    restrictions.append("dairy-free")
+    extra_notes = st.text_input("Any special requests? (optional)", placeholder="e.g. quick weeknight dinner, one pan, kid-friendly")
 
-ingredient_text = ", ".join(chosen) if chosen else "cook's choice (suggest a great gluten-free dish)"
+    restrictions = ["celiac (must be strictly gluten-free)"]
+    if vegetarian:
+        restrictions.append("vegetarian")
+    if dairy_free:
+        restrictions.append("dairy-free")
 
-prompt = f"""Please create ONE recipe that tries to include these ingredients:
+    ingredient_text = ", ".join(chosen) if chosen else "cook's choice (suggest a great gluten-free dish)"
+
+    prompt = f"""Please create ONE recipe that tries to include these ingredients:
 {ingredient_text}.
 
 Requirements:
@@ -158,17 +151,44 @@ Format your answer as:
 4. A numbered "Instructions" list.
 Make sure every ingredient and product is gluten-free and safe for celiac disease."""
 
-# --------------------------------------------------------------------- action
-if st.button("Generate my recipe 🍽️", type="primary"):
-    if not chosen:
-        st.info("Tip: pick a few ingredients above for a more tailored recipe — or just hit generate for a surprise.")
-    with st.spinner("Writing your recipe..."):
-        recipe = generate_recipe(prompt)
-    st.markdown("---")
-    st.markdown(recipe)
+    if st.button("Generate my recipe 🍽️", type="primary"):
+        if not chosen:
+            st.info("Tip: pick a few ingredients above for a more tailored recipe — or just hit generate for a surprise.")
+        with st.spinner("Writing your recipe..."):
+            recipe = generate_recipe(prompt)
+        st.markdown("---")
+        st.markdown(recipe)
 
-with st.expander("See the exact prompt sent to the AI"):
-    st.code(prompt)
+    with st.expander("See the exact prompt sent to the AI"):
+        st.code(prompt)
 
-st.caption("Every recipe is generated gluten-free / celiac-safe. Add to Home Screen: "
+with tab_cookbook:
+    st.caption("Your own recipes. Add more by editing my_recipes.py in GitHub.")
+    if not MY_RECIPES:
+        st.info("Your cookbook is empty. Add recipes to my_recipes.py in your GitHub repo and they'll show up here.")
+    else:
+        search = st.text_input("Search your cookbook", placeholder="Type a recipe name or ingredient")
+        shown = 0
+        for r in MY_RECIPES:
+            haystack = (r.get("title", "") + " " + r.get("description", "") + " " +
+                        " ".join(r.get("ingredients", []))).lower()
+            if search.strip() and search.strip().lower() not in haystack:
+                continue
+            shown += 1
+            with st.expander(f"📖  {r.get('title', 'Untitled')}", expanded=False):
+                if r.get("description"):
+                    st.write(r["description"])
+                if r.get("ingredients"):
+                    st.markdown("**Ingredients**")
+                    for ing in r["ingredients"]:
+                        st.markdown(f"- {ing}")
+                if r.get("steps"):
+                    st.markdown("**Instructions**")
+                    for i, step in enumerate(r["steps"], 1):
+                        st.markdown(f"{i}. {step}")
+        if search.strip() and shown == 0:
+            st.warning("No recipes matched that search.")
+        st.caption(f"{len(MY_RECIPES)} recipe(s) in your cookbook.")
+
+st.caption("Every AI recipe is generated gluten-free / celiac-safe. Add to Home Screen: "
            "iPhone → Share → Add to Home Screen · Android → ⋮ → Add to Home screen.")
