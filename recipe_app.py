@@ -7,22 +7,36 @@ import os
 import streamlit as st
  
 # ---------------------------------------------------------------- AI
-def generate_recipe(prompt):
+def _get_key():
     try:
-        key = st.secrets.get("ANTHROPIC_API_KEY")
+        if "ANTHROPIC_API_KEY" in st.secrets:
+            return st.secrets["ANTHROPIC_API_KEY"]
     except Exception:
-        key = os.environ.get("ANTHROPIC_API_KEY")
+        pass
+    return os.environ.get("ANTHROPIC_API_KEY")
+ 
+ 
+def generate_recipe(prompt):
+    key = _get_key()
     if not key:
         return "_Add ANTHROPIC_API_KEY in Secrets to generate real recipes._"
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=key)
-        msg = client.messages.create(
-            model=os.environ.get("CLAUDE_MODEL", "claude-3-5-sonnet-latest"),
-            max_tokens=8192,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return "".join(b.text for b in msg.content if b.type == "text")
+        model = os.environ.get("CLAUDE_MODEL", "claude-3-5-sonnet-latest")
+        messages = [{"role": "user", "content": prompt}]
+        full = ""
+        # Auto-continue if a recipe is ever too long for one response, so it
+        # can never get cut off. Up to 4 passes is far more than any recipe needs.
+        for _ in range(4):
+            msg = client.messages.create(model=model, max_tokens=4096, messages=messages)
+            chunk = "".join(b.text for b in msg.content if b.type == "text")
+            full += chunk
+            if msg.stop_reason != "max_tokens":
+                break
+            messages.append({"role": "assistant", "content": chunk})
+            messages.append({"role": "user", "content": "Continue exactly where you left off, without repeating anything."})
+        return full
     except Exception as e:
         return f"_Recipe request failed: {e}_"
  
