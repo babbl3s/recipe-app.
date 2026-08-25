@@ -23,7 +23,7 @@ def generate_recipe(prompt):
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=key)
-        model = os.environ.get("CLAUDE_MODEL", "claude-3-5-sonnet-latest")
+        model = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5")
         messages = [{"role": "user", "content": prompt}]
         full = ""
         # Auto-continue if a recipe is ever too long for one response, so it
