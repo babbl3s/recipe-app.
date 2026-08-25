@@ -31,7 +31,7 @@ def generate_recipe(prompt):
         client = anthropic.Anthropic(api_key=key)
         msg = client.messages.create(
             model=os.environ.get("CLAUDE_MODEL", "claude-3-5-sonnet-latest"),
-            max_tokens=900,
+            max_tokens=3000,
             messages=[{"role": "user", "content": prompt}],
         )
         return "".join(b.text for b in msg.content if b.type == "text")
