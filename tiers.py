@@ -1,5 +1,12 @@
-"""tiers.py — the four membership tiers and what each unlocks."""
 
+"""
+tiers.py — the four membership tiers and what each unlocks.
+ 
+After you create the products in Stripe (test mode), paste each one's PRICE ID
+(looks like "price_1Abc...") into `price_id` below. Find it in Stripe:
+Product catalog → open the product → copy the API ID under its price.
+"""
+ 
 TIERS = {
     "free": {
         "key": "free", "name": "Free", "price_label": "$0",
@@ -22,12 +29,13 @@ TIERS = {
         "price_id": "REPLACE_WITH_UNLIMITED_PRICE_ID",
     },
 }
-
+ 
 TIER_ORDER = ["free", "basic", "full", "unlimited"]
-
+ 
+# price_id -> tier key (built from the table above)
 PRICE_TO_TIER = {
     t["price_id"]: t["key"] for t in TIERS.values() if t.get("price_id")
 }
-
+ 
 def info(key):
     return TIERS.get(key, TIERS["free"])
