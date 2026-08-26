@@ -1,6 +1,7 @@
 """
 Renee's Table — web app (Streamlit). Self-contained: needs only streamlit + anthropic.
 Set ANTHROPIC_API_KEY in Streamlit Secrets.
+Tabs: Generate a recipe · Convert a recipe to gluten-free · My Cookbook.
 """
  
 import os
@@ -16,7 +17,8 @@ def _get_key():
     return os.environ.get("ANTHROPIC_API_KEY")
  
  
-def generate_recipe(prompt):
+def ask_claude(prompt):
+    """Send a prompt to Claude. Auto-continues so long answers never cut off."""
     key = _get_key()
     if not key:
         return "_Add ANTHROPIC_API_KEY in Secrets to generate real recipes._"
@@ -26,8 +28,6 @@ def generate_recipe(prompt):
         model = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5")
         messages = [{"role": "user", "content": prompt}]
         full = ""
-        # Auto-continue if a recipe is ever too long for one response, so it
-        # can never get cut off. Up to 4 passes is far more than any recipe needs.
         for _ in range(4):
             msg = client.messages.create(model=model, max_tokens=4096, messages=messages)
             chunk = "".join(b.text for b in msg.content if b.type == "text")
@@ -76,8 +76,9 @@ st.set_page_config(page_title="Renee's Table", page_icon="🍳", layout="centere
 st.title("🍳 Renee's Table")
 st.caption("Gluten-free recipes, made for you.")
  
-tab_gen, tab_book = st.tabs(["✨ Generate", "📖 My Cookbook"])
+tab_gen, tab_convert, tab_book = st.tabs(["✨ Generate", "♻️ Make it Gluten-Free", "📖 My Cookbook"])
  
+# ============================ GENERATE ============================
 with tab_gen:
     st.header("What's in your kitchen?")
     chosen = []
@@ -108,18 +109,46 @@ with tab_gen:
         "5. Directions — clear numbered steps with prep, temperatures, timing, and how to tell "
         "each step is done.\n"
         "6. Time & Servings.\n\n"
-        "IMPORTANT: Keep the whole recipe COMPLETE and self-contained — always finish every "
-        "section, especially the full Directions. Aim for about 400–650 words total so nothing "
-        "gets cut off. Do not pad or over-explain. Everything must be gluten-free and safe for "
-        "someone with celiac disease."
+        "IMPORTANT: Keep the whole recipe COMPLETE — always finish every section, especially the "
+        "full Directions. Aim for about 400–650 words. Everything must be gluten-free and celiac-safe."
     )
  
     if st.button("Generate my recipe 🍽️", type="primary"):
         with st.spinner("Writing your recipe..."):
-            recipe = generate_recipe(prompt)
+            st.session_state["gen_result"] = ask_claude(prompt)
+    if st.session_state.get("gen_result"):
         st.markdown("---")
-        st.markdown(recipe)
+        st.markdown(st.session_state["gen_result"])
  
+# ============================ CONVERT ============================
+with tab_convert:
+    st.header("Make any recipe gluten-free")
+    st.caption("Paste a recipe below and I'll rewrite it to be safe for celiac disease — keeping it as close to the original as possible.")
+    user_recipe = st.text_area("Paste your recipe here", height=220,
+                               placeholder="Paste the full recipe — ingredients and instructions.")
+ 
+    if st.button("Convert to gluten-free ♻️", type="primary"):
+        if not user_recipe.strip():
+            st.info("Paste a recipe first, then tap convert.")
+        else:
+            convert_prompt = (
+                "Convert the following recipe to be STRICTLY gluten-free and safe for someone with "
+                "celiac disease. Keep it as close to the original as possible — change only what's "
+                "necessary. For every swap, name the gluten-free substitute and, in parentheses, what "
+                "it replaced (e.g. 'gluten-free tamari (instead of soy sauce)'). Call out hidden-gluten "
+                "watch-outs (soy sauce, broth, oats, seasoning blends, imitation seafood) and remind the "
+                "cook to check labels for 'certified gluten-free'.\n\n"
+                "Return: a Title, an Ingredients list with quantities, numbered Instructions, and a short "
+                "'Substitutions made' summary at the end.\n\n"
+                f"RECIPE TO CONVERT:\n{user_recipe.strip()}"
+            )
+            with st.spinner("Converting your recipe..."):
+                st.session_state["convert_result"] = ask_claude(convert_prompt)
+    if st.session_state.get("convert_result"):
+        st.markdown("---")
+        st.markdown(st.session_state["convert_result"])
+ 
+# ============================ COOKBOOK ============================
 with tab_book:
     st.header("Your cookbook")
     q = st.text_input("Search", placeholder="Recipe name or ingredient")
