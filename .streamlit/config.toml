@@ -1,0 +1,10 @@
+# Renee's Table — web theme (Gluten Free Gourmet Hub palette)
+# Calming sage on soft off-white, matching the app.
+ 
+[theme]
+base = "light"
+primaryColor = "#55734F"            # calming sage — buttons, sliders, accents
+backgroundColor = "#F3F5ED"         # soft off-white ground
+secondaryBackgroundColor = "#E8EEE2" # inputs, cards, sidebar
+textColor = "#333B2E"               # deep eucalyptus charcoal
+font = "sans serif"
